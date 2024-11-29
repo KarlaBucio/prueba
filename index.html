@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Tareas</title>
+    <link rel="stylesheet" href="PF.css">
+</head>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+    }
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    h1 {
+        text-align: center;
+    }
+    .task-input, .filter-input {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .task-input input[type="text"] {
+        flex: 1;
+        padding: 10px;
+    }
+    .task-list {
+        list-style: none;
+        padding: 0;
+    }
+    .task-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    .completed {
+        background-color: #d4edda;
+    }
+    button {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .add-btn {
+        background-color: #28a745;
+        color: white;
+    }
+    .complete-btn {
+        background-color: #28a745;
+        color: white;
+    }
+    .incomplete-btn {
+        background-color: #ffc107;
+        color: black;
+    }
+    .edit-btn {
+        background-color: #007bff;
+        color: white;
+    }
+    .delete-btn {
+        background-color: #dc3545;
+        color: white;
+    }
+    select {
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+</style>
+<body>
+    <div class="container">
+        <h1>Lista de tareas</h1>
+
+        <!-- Formulario para agregar tareas -->
+        <form id="add-task-form" class="task-input">
+            <input type="text" id="taskName" placeholder="Nueva tarea" required>
+            <button type="submit" class="add-btn">Agregar tarea</button>
+        </form>
+
+        <!-- Formulario para filtrar tareas -->
+        <form class="filter-input" id="filter-form">
+            <select id="filter">
+                <option value="all">Todas</option>
+                <option value="completada">Completadas</option>
+                <option value="pendiente">Pendientes</option>
+                <option value="alta">Prioridad Alta</option>
+                <option value="media">Prioridad Media</option>
+                <option value="baja">Prioridad Baja</option>
+            </select>
+        </form>
+
+        <!-- Lista de tareas -->
+        <ul id="task-list" class="task-list">
+            <!-- Las tareas se agregarán aquí dinámicamente -->
+        </ul>
+    </div>
+
+    <script>
+        // Obtiene las tareas almacenadas en localStorage o un array vacío si no hay tareas
+        function loadTasks() {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            return tasks;
+        }
+
+        // Guarda las tareas en localStorage
+        function saveTasks(tasks) {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Filtra las tareas según el filtro seleccionado
+        function filterTasks(tasks, filter) {
+            if (filter === 'all') return tasks;
+            if (filter === 'completada') return tasks.filter(task => task.completed);
+            if (filter === 'pendiente') return tasks.filter(task => !task.completed);
+            return tasks.filter(task => task.priority === filter);
+        }
+
+        // Crea un nuevo elemento de tarea en la lista HTML
+        function createTaskElement(task, index) {
+            const li = document.createElement('li');
+            li.classList.add('task-item');
+            if (task.completed) {
+                li.classList.add('completed');
+            }
+
+            li.innerHTML = `
+                <span>
+                    ${task.name}
+                    <small class="priority-${task.priority}">(${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} prioridad)</small>
+                </span>
+                <div>
+                    <button class="complete-btn" onclick="toggleComplete(${index})">${task.completed ? 'Pendiente' : 'Completa'}</button>
+                    <select onchange="changePriority(${index}, this.value)">
+                        <option value="alta" ${task.priority === 'alta' ? 'selected' : ''}>Alta</option>
+                        <option value="media" ${task.priority === 'media' ? 'selected' : ''}>Media</option>
+                        <option value="baja" ${task.priority === 'baja' ? 'selected' : ''}>Baja</option>
+                    </select>
+                    <input type="text" placeholder="Nuevo nombre" value="${task.name}" onblur="editTask(${index}, this.value)">
+                    <button class="edit-btn" onclick="editTask(${index}, this.previousElementSibling.value)">Modificar</button>
+                    <button class="delete-btn" onclick="deleteTask(${index})">Eliminar</button>
+                </div>
+            `;
+            return li;
+        }
+
+        // Muestra las tareas en la interfaz de usuario
+        function renderTasks() {
+            const tasks = loadTasks();
+            const filter = document.getElementById('filter').value;
+            const filteredTasks = filterTasks(tasks, filter);
+
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+
+            filteredTasks.forEach((task, index) => {
+                const taskElement = createTaskElement(task, index);
+                taskList.appendChild(taskElement);
+            });
+        }
+
+        // Agrega una tarea nueva
+        function addTask(event) {
+            event.preventDefault();
+
+            const taskNameInput = document.getElementById('taskName');
+            const taskName = taskNameInput.value.trim();
+
+            if (taskName) {
+                const tasks = loadTasks();
+                tasks.push({ name: taskName, completed: false, priority: 'media' });
+                saveTasks(tasks);
+                taskNameInput.value = '';
+                renderTasks();
+            }
+        }
+
+        // Marca una tarea como completada o pendiente
+        function toggleComplete(index) {
+            const tasks = loadTasks();
+            tasks[index].completed = !tasks[index].completed;
+            saveTasks(tasks);
+            renderTasks();
+        }
+
+        // Cambia la prioridad de una tarea
+        function changePriority(index, priority) {
+            const tasks = loadTasks();
+            tasks[index].priority = priority;
+            saveTasks(tasks);
+            renderTasks();
+        }
+
+        // Edita el nombre de una tarea
+        function editTask(index, newName) {
+            const tasks = loadTasks();
+            tasks[index].name = newName.trim();
+            saveTasks(tasks);
+            renderTasks();
+        }
+
+        // Elimina una tarea
+        function deleteTask(index) {
+            const tasks = loadTasks();
+            tasks.splice(index, 1);
+            saveTasks(tasks);
+            renderTasks();
+        }
+
+        // Event listeners
+        document.getElementById('add-task-form').addEventListener('submit', addTask);
+        document.getElementById('filter').addEventListener('change', renderTasks);
+
+        // Inicializa la aplicación
+        renderTasks();
+    </script>
+</body>
+</html>
